@@ -1,0 +1,19 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "mediapackage:CreateChannel",
+                "mediapackage:DescribeChannel",
+                "mediapackage:ListChannels",
+                "mediapackage:DeleteChannel",
+                "mediapackage:CreateOriginEndpoint",
+                "mediapackage:DescribeOriginEndpoint",
+                "mediapackage:ListOriginEndpoints",
+                "mediapackage:DeleteOriginEndpoint"
+            ],
+            "Resource": "*"
+        }
+    ]
+}

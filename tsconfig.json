@@ -1,0 +1,39 @@
+{
+  "compilerOptions": {
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"]
+    },
+    "types": ["node", "aws-sdk", "@clerk/nextjs"],  // Add this line to include AWS SDK types
+    "forceConsistentCasingInFileNames": true,  // Add this for better file naming consistency
+    "noImplicitAny": true,  // Add this to catch more type errors
+    "strictNullChecks": true,  // Add this to catch potential null/undefined errors
+    "allowSyntheticDefaultImports": true  // Add this for better import compatibility
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    "app/api/cancel-subscription",
+    "scripts/testDatabaseInsertion.mjs"
+  ],
+  "exclude": ["node_modules"]
+}

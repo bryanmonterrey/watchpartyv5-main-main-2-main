@@ -1,0 +1,6 @@
+{
+    "TargetValue": 5000000.0,
+    "PredefinedMetricSpecification": {
+      "PredefinedMetricType": "ASGAverageNetworkIn"
+    }
+  }

@@ -1,0 +1,14 @@
+{
+    "Name": "StreamingWAF",
+    "Scope": "CLOUDFRONT",
+    "DefaultAction": {
+      "Allow": {}
+    },
+    "Description": "WAF for streaming service",
+    "Rules": [],
+    "VisibilityConfig": {
+      "SampledRequestsEnabled": true,
+      "CloudWatchMetricsEnabled": true,
+      "MetricName": "StreamingWAFMetric"
+    }
+  }

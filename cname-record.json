@@ -1,0 +1,17 @@
+{
+    "Changes": [
+      {
+        "Action": "CREATE",
+        "ResourceRecordSet": {
+          "Name": "stream.watchparty.xyz",
+          "Type": "CNAME",
+          "TTL": 300,
+          "ResourceRecords": [
+            {
+              "Value": "dc9g672om5pf.cloudfront.net"
+            }
+          ]
+        }
+      }
+    ]
+  }

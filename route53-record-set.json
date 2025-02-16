@@ -1,0 +1,16 @@
+{
+    "Changes": [
+      {
+        "Action": "UPSERT",
+        "ResourceRecordSet": {
+          "Name": "live.watchparty.xyz",
+          "Type": "A",
+          "AliasTarget": {
+            "HostedZoneId": "Z26RNL4JYFTOTI",
+            "DNSName": "StreamingNLB-ab3dee02ba94c6a4.elb.us-east-1.amazonaws.com",
+            "EvaluateTargetHealth": true
+          }
+        }
+      }
+    ]
+  }

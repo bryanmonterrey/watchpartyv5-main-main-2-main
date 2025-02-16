@@ -1,0 +1,17 @@
+{
+    "BackupPlan": {
+      "BackupPlanName": "DailyBackups",
+      "Rules": [
+        {
+          "RuleName": "DailyBackupRule",
+          "TargetBackupVaultName": "Default",
+          "ScheduleExpression": "cron(0 5 ? * * *)",
+          "StartWindowMinutes": 60,
+          "CompletionWindowMinutes": 180,
+          "Lifecycle": {
+            "DeleteAfterDays": 14
+          }
+        }
+      ]
+    }
+  }

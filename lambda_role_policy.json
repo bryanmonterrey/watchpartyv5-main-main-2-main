@@ -1,0 +1,20 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "medialive:*",
+                "mediapackage:*",
+                "ssm:PutParameter",
+                "ssm:GetParameters",
+                "dynamodb:PutItem",
+                "logs:CreateLogGroup",
+                "logs:CreateLogStream",
+                "logs:PutLogEvents",
+                "iam:PassRole"
+            ],
+            "Resource": "*"
+        }
+    ]
+}

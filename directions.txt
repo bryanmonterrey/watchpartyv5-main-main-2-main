@@ -1,0 +1,208 @@
+Certainly! I'll provide a step-by-step guide using AWS CLI to set up a Twitch-like streaming infrastructure with auto-scaling and low latency. This guide assumes you have AWS CLI configured with appropriate permissions.
+
+
+
+```bash
+# Twitch-like Streaming Setup Guide
+
+## 1. Set up VPC and Subnets
+
+# Create VPC
+VPC_ID=$(aws ec2 create-vpc --cidr-block 10.0.0.0/16 --query 'Vpc.VpcId' --output text)
+aws ec2 create-tags --resources $VPC_ID --tags Key=Name,Value=StreamingVPC
+
+# Create Subnets
+SUBNET1_ID=$(aws ec2 create-subnet --vpc-id $VPC_ID --cidr-block 10.0.1.0/24 --availability-zone us-east-1a --query 'Subnet.SubnetId' --output text)
+SUBNET2_ID=$(aws ec2 create-subnet --vpc-id $VPC_ID --cidr-block 10.0.2.0/24 --availability-zone us-east-1b --query 'Subnet.SubnetId' --output text)
+
+# Create and attach Internet Gateway
+IGW_ID=$(aws ec2 create-internet-gateway --query 'InternetGateway.InternetGatewayId' --output text)
+aws ec2 attach-internet-gateway --internet-gateway-id $IGW_ID --vpc-id $VPC_ID
+
+# Create Route Table and add route to Internet Gateway
+ROUTE_TABLE_ID=$(aws ec2 create-route-table --vpc-id $VPC_ID --query 'RouteTable.RouteTableId' --output text)
+aws ec2 create-route --route-table-id $ROUTE_TABLE_ID --destination-cidr-block 0.0.0.0/0 --gateway-id $IGW_ID
+aws ec2 associate-route-table --route-table-id $ROUTE_TABLE_ID --subnet-id $SUBNET1_ID
+aws ec2 associate-route-table --route-table-id $ROUTE_TABLE_ID --subnet-id $SUBNET2_ID
+
+## 2. Create Security Groups
+
+# Create Security Group for EC2 instances
+EC2_SG_ID=$(aws ec2 create-security-group --group-name EC2SecurityGroup --description "Security group for EC2 instances" --vpc-id $VPC_ID --query 'GroupId' --output text)
+aws ec2 authorize-security-group-ingress --group-id $EC2_SG_ID --protocol tcp --port 1935 --cidr 0.0.0.0/0
+aws ec2 authorize-security-group-ingress --group-id $EC2_SG_ID --protocol tcp --port 22 --cidr 0.0.0.0/0
+
+# Create Security Group for EFS
+EFS_SG_ID=$(aws ec2 create-security-group --group-name EFSSecurityGroup --description "Security group for EFS" --vpc-id $VPC_ID --query 'GroupId' --output text)
+aws ec2 authorize-security-group-ingress --group-id $EFS_SG_ID --protocol tcp --port 2049 --source-group $EC2_SG_ID
+
+## 3. Create EFS File System
+
+EFS_ID=$(aws efs create-file-system --performance-mode generalPurpose --encrypted --query 'FileSystemId' --output text)
+
+# Create Mount Targets
+aws efs create-mount-target --file-system-id $EFS_ID --subnet-id $SUBNET1_ID --security-groups $EFS_SG_ID
+aws efs create-mount-target --file-system-id $EFS_ID --subnet-id $SUBNET2_ID --security-groups $EFS_SG_ID
+
+## 4. Prepare EC2 Instance Configuration
+
+# Create IAM Role for EC2 instances
+aws iam create-role --role-name EC2StreamingRole --assume-role-policy-document file://trust-policy.json
+aws iam attach-role-policy --role-name EC2StreamingRole --policy-arn arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+aws iam attach-role-policy --role-name EC2StreamingRole --policy-arn arn:aws:iam::aws:policy/AmazonEFS_Client_ReadWrite
+
+# Create Instance Profile
+aws iam create-instance-profile --instance-profile-name StreamingInstanceProfile
+aws iam add-role-to-instance-profile --instance-profile-name StreamingInstanceProfile --role-name EC2StreamingRole
+
+# Create Launch Template
+LAUNCH_TEMPLATE_ID=$(aws ec2 create-launch-template --launch-template-name StreamingLaunchTemplate --version-description v1 --launch-template-data file://launch-template-data.json --query 'LaunchTemplate.LaunchTemplateId' --output text)
+
+## 5. Set up Auto Scaling Group
+
+ASG_ARN=$(aws autoscaling create-auto-scaling-group --auto-scaling-group-name StreamingASG --launch-template LaunchTemplateId=$LAUNCH_TEMPLATE_ID,Version='$Latest' --min-size 2 --max-size 10 --desired-capacity 2 --vpc-zone-identifier "$SUBNET1_ID,$SUBNET2_ID" --query 'AutoScalingGroupARN' --output text)
+
+# Create Scaling Policies
+aws autoscaling put-scaling-policy --auto-scaling-group-name StreamingASG --policy-name CPUUtilizationScaling --policy-type TargetTrackingScaling --target-tracking-configuration file://cpu-scaling-policy.json
+
+aws autoscaling put-scaling-policy --auto-scaling-group-name StreamingASG --policy-name NetworkInScaling --policy-type TargetTrackingScaling --target-tracking-configuration file://network-scaling-policy.json
+
+## 6. Set up Network Load Balancer
+
+# Create NLB
+NLB_ARN=$(aws elbv2 create-load-balancer --name StreamingNLB --type network --subnets $SUBNET1_ID $SUBNET2_ID --query 'LoadBalancers[0].LoadBalancerArn' --output text)
+
+# Create Target Group
+TG_ARN=$(aws elbv2 create-target-group --name StreamingTG --protocol TCP --port 1935 --vpc-id $VPC_ID --target-type instance --health-check-protocol TCP --health-check-port 1935 --query 'TargetGroups[0].TargetGroupArn' --output text)
+
+# Create Listener
+aws elbv2 create-listener --load-balancer-arn $NLB_ARN --protocol TCP --port 1935 --default-actions Type=forward,TargetGroupArn=$TG_ARN
+
+# Attach ASG to Target Group
+aws autoscaling attach-load-balancer-target-groups --auto-scaling-group-name StreamingASG --target-group-arns $TG_ARN
+
+## 7. Set up Route 53
+
+# Get your hosted zone ID
+HOSTED_ZONE_ID=$(aws route53 list-hosted-zones --query 'HostedZones[?Name==`watchparty.xyz.`].Id' --output text)
+
+# Get NLB DNS Name
+NLB_DNS_NAME=$(aws elbv2 describe-load-balancers --load-balancer-arns $NLB_ARN --query 'LoadBalancers[0].DNSName' --output text)
+
+# Create Route 53 record set
+aws route53 change-resource-record-sets --hosted-zone-id $HOSTED_ZONE_ID --change-batch file://route53-record-set.json
+
+## 8. Set up CloudWatch Alarms
+
+# Create CPU Utilization Alarm
+aws cloudwatch put-metric-alarm --alarm-name HighCPUUtilization --alarm-description "Alarm when CPU exceeds 70%" --metric-name CPUUtilization --namespace AWS/EC2 --statistic Average --period 300 --threshold 70 --comparison-operator GreaterThanThreshold --dimensions Name=AutoScalingGroupName,Value=StreamingASG --evaluation-periods 2 --alarm-actions $SNS_TOPIC_ARN
+
+# Create Network In Alarm
+aws cloudwatch put-metric-alarm --alarm-name HighNetworkIn --alarm-description "Alarm when Network In exceeds 5MB/s" --metric-name NetworkIn --namespace AWS/EC2 --statistic Average --period 300 --threshold 5000000 --comparison-operator GreaterThanThreshold --dimensions Name=AutoScalingGroupName,Value=StreamingASG --evaluation-periods 2 --alarm-actions $SNS_TOPIC_ARN
+
+echo "Setup complete. Your streaming infrastructure is now ready!"
+
+```
+
+To use this guide, you'll need to prepare the following files:
+
+1. `trust-policy.json`: IAM role trust policy
+2. `launch-template-data.json`: EC2 Launch Template configuration
+3. `cpu-scaling-policy.json`: Auto Scaling CPU utilization policy
+4. `network-scaling-policy.json`: Auto Scaling network traffic policy
+5. `route53-record-set.json`: Route 53 record set configuration
+
+Here's the content for these files:
+
+1. `trust-policy.json`:
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "ec2.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+
+```
+
+2. `launch-template-data.json`:
+```json
+{
+  "ImageId": "ami-xxxxxxxxxxxxxxxxx",
+  "InstanceType": "c5.large",
+  "IamInstanceProfile": {
+    "Name": "StreamingInstanceProfile"
+  },
+  "UserData": "BASE64_ENCODED_USER_DATA_SCRIPT",
+  "SecurityGroupIds": ["SECURITY_GROUP_ID"],
+  "BlockDeviceMappings": [
+    {
+      "DeviceName": "/dev/xvda",
+      "Ebs": {
+        "VolumeSize": 30,
+        "VolumeType": "gp3"
+      }
+    }
+  ]
+}
+
+```
+
+3. `cpu-scaling-policy.json`:
+```json
+{
+  "TargetValue": 70.0,
+  "PredefinedMetricSpecification": {
+    "PredefinedMetricType": "ASGAverageCPUUtilization"
+  }
+}
+
+```
+
+4. `network-scaling-policy.json`:
+```json
+{
+  "TargetValue": 5000000.0,
+  "PredefinedMetricSpecification": {
+    "PredefinedMetricType": "ASGAverageNetworkIn"
+  }
+}
+
+```
+
+5. `route53-record-set.json`:
+```json
+{
+  "Changes": [
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "live.watchparty.xyz",
+        "Type": "A",
+        "AliasTarget": {
+          "HostedZoneId": "HOSTED_ZONE_ID",
+          "DNSName": "NLB_DNS_NAME",
+          "EvaluateTargetHealth": true
+        }
+      }
+    }
+  ]
+}
+
+```
+
+Before running the commands:
+1. Replace placeholders like `ami-xxxxxxxxxxxxxxxxx`, `SECURITY_GROUP_ID`, `HOSTED_ZONE_ID`, and `NLB_DNS_NAME` with actual values.
+2. Prepare the UserData script, encode it in Base64, and replace `BASE64_ENCODED_USER_DATA_SCRIPT` in the launch template data.
+3. Ensure you have the necessary IAM permissions to create and manage these resources.
+4. Review and adjust the configuration files as needed for your specific requirements.
+
+This setup creates a scalable, low-latency streaming infrastructure using EC2 instances with Auto Scaling, a Network Load Balancer, and EFS for shared configuration. The `live.watchparty.xyz` domain will point to your Network Load Balancer, which will distribute incoming RTMP traffic to your EC2 instances.
+
+After setting up, monitor your CloudWatch dashboards and alarms to ensure the system is performing as expected and scale your resources as needed.

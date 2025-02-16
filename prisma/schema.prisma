@@ -1,0 +1,152 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider     = "cockroachdb"
+  url          = env("DATABASE_URL")
+  relationMode = "prisma"
+}
+
+model Widget {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+}
+
+model User {
+  id             String   @id @default(uuid())
+  username       String   @unique
+  email          String   @unique
+  imageUrl       String
+  externalUserId String   @unique
+  bio            String?
+
+  following Follow[] @relation("Following")
+  followedBy Follow[] @relation("FollowedBy")
+
+  blocking Block[] @relation("Blocking")
+  blockedBy Block[] @relation("BlockedBy")
+
+  stripeCustomerId String?   @unique
+
+  stream Stream?
+
+  subscription Subscription?
+
+  subscribed Boolean @default(false)
+
+  subscribedChannels ChannelSubscription[] @relation("Subscriber")
+  channelSubscribers ChannelSubscription[] @relation("Channel")
+
+  channelProducts ChannelProduct[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Stream {
+  id        String  @id @default(uuid())
+  name      String
+  thumbnailUrl String?
+
+  ingressId String? @unique
+  serverUrl String?
+  streamKey String?
+  vodUrl    String?
+  playbackUrl String?
+
+  isLive               Boolean @default(false)
+  isChatEnabled        Boolean @default(true)
+  isChatDelayed        Boolean @default(false)
+  isChatFollowersOnly  Boolean @default(false)
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([ingressId])
+}
+
+model Follow {
+  id          String @id @default(uuid())
+  followerId  String
+  followingId String
+
+  follower  User @relation(name: "Following", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation(name: "FollowedBy", fields: [followingId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+}
+
+model Block {
+  id        String @id @default(uuid())
+  blockerId String
+  blockedId String
+
+  blocker User @relation(name: "Blocking", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation(name: "BlockedBy", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+  @@index([blockerId])
+  @@index([blockedId])
+}
+
+model Subscription {
+  id                     String    @id @default(uuid())
+  userId                 String    @unique
+  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status                 String
+  stripeCustomerId       String?   @unique
+  stripeSubscriptionId   String?   @unique
+  stripePriceId          String?
+  stripeCurrentPeriodEnd DateTime?
+}
+
+model Product {
+  id            String @id @default(uuid())
+  name          String
+  description   String?
+  price         Int
+  stripePriceId String @unique
+}
+
+model ChannelSubscription {
+  id                     String    @id @default(uuid())
+  subscriberId           String
+  subscriberUser         User      @relation("Subscriber", fields: [subscriberId], references: [id], onDelete: Cascade)
+  channelId              String
+  channelUser            User      @relation("Channel", fields: [channelId], references: [id], onDelete: Cascade)
+  status                 String
+  tierName               String
+  stripeSubscriptionId   String?   @unique
+  stripePriceId          String?
+  cryptoPaymentId        String?
+  stripeCurrentPeriodEnd DateTime?
+  duration               String?
+  lastFourDigits         String?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  @@unique([subscriberId, channelId])
+  @@index([subscriberId])
+  @@index([channelId])
+}
+
+model ChannelProduct {
+  id            String @id @default(uuid())
+  userId        String
+  user          User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String
+  description   String?
+  price         Int
+  stripePriceId String @unique
+
+  @@index([userId])
+}

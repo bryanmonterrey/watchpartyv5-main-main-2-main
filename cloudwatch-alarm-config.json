@@ -1,0 +1,18 @@
+{
+    "AlarmName": "HighCPUUsage",
+    "AlarmDescription": "Alarm when CPU exceeds 70%",
+    "ActionsEnabled": true,
+    "MetricName": "CPUUtilization",
+    "Namespace": "AWS/EC2",
+    "Statistic": "Average",
+    "Dimensions": [
+      {
+        "Name": "AutoScalingGroupName",
+        "Value": "StreamingASG"
+      }
+    ],
+    "Period": 300,
+    "EvaluationPeriods": 1,
+    "Threshold": 70,
+    "ComparisonOperator": "GreaterThanThreshold"
+  }

@@ -1,0 +1,149 @@
+{
+    "Name": "MyMediaLiveChannel",
+    "RoleArn": "arn:aws:iam::065779977513:role/StreamingApp",
+    "InputAttachments": [
+      {
+        "InputId": "8591516",
+        "InputAttachmentName": "MainInput"
+      }
+    ],
+    "Destinations": [
+      {
+        "Id": "mediapackage-destination",
+        "MediaPackageSettings": [
+          {
+            "ChannelId": "40090fda9e5f42768c78eaf4ea5b65e6"
+          }
+        ]
+      },
+      {
+        "Id": "s3-archive",
+        "Settings": [
+          {
+            "Url": "s3://vod-storage1/archives/"
+          },
+          {
+            "Url": "s3://vod-storage1/archives/backup/"
+          }
+        ]
+      }
+    ],
+    "EncoderSettings": {
+      "AudioDescriptions": [
+        {
+          "AudioSelectorName": "Default",
+          "Name": "audio_1",
+          "CodecSettings": {
+            "AacSettings": {
+              "InputType": "NORMAL",
+              "Bitrate": 96000,
+              "CodingMode": "CODING_MODE_2_0",
+              "RawFormat": "NONE",
+              "Spec": "MPEG4",
+              "Profile": "LC",
+              "RateControlMode": "CBR",
+              "SampleRate": 48000
+            }
+          }
+        }
+      ],
+      "VideoDescriptions": [
+        {
+          "Name": "video_1",
+          "RespondToAfd": "NONE",
+          "ScalingBehavior": "DEFAULT",
+          "Sharpness": 50,
+          "Width": 1920,
+          "Height": 1080,
+          "CodecSettings": {
+            "H264Settings": {
+              "AfdSignaling": "NONE",
+              "ColorMetadata": "INSERT",
+              "AdaptiveQuantization": "HIGH",
+              "Bitrate": 5000000,
+              "EntropyEncoding": "CABAC",
+              "FlickerAq": "ENABLED",
+              "FramerateControl": "SPECIFIED",
+              "FramerateNumerator": 30000,
+              "FramerateDenominator": 1001,
+              "GopBReference": "ENABLED",
+              "GopClosedCadence": 1,
+              "GopSize": 60,
+              "GopSizeUnits": "FRAMES",
+              "ScanType": "PROGRESSIVE",
+              "Level": "H264_LEVEL_4_1",
+              "LookAheadRateControl": "HIGH",
+              "NumRefFrames": 3,
+              "ParControl": "SPECIFIED",
+              "ParNumerator": 1,
+              "ParDenominator": 1,
+              "Profile": "HIGH",
+              "RateControlMode": "CBR",
+              "Syntax": "DEFAULT",
+              "TimecodeInsertion": "DISABLED"
+            }
+          }
+        }
+      ],
+      "OutputGroups": [
+        {
+          "Name": "MediaPackage",
+          "OutputGroupSettings": {
+            "MediaPackageGroupSettings": {
+              "Destination": {
+                "DestinationRefId": "mediapackage-destination"
+              }
+            }
+          },
+          "Outputs": [
+            {
+              "OutputName": "MediaPackageOutput",
+              "AudioDescriptionNames": ["audio_1"],
+              "VideoDescriptionName": "video_1",
+              "OutputSettings": {
+                "MediaPackageOutputSettings": {}
+              }
+            }
+          ]
+        },
+        {
+          "Name": "ArchiveGroup",
+          "OutputGroupSettings": {
+            "ArchiveGroupSettings": {
+              "Destination": {
+                "DestinationRefId": "s3-archive"
+              },
+              "RolloverInterval": 900
+            }
+          },
+          "Outputs": [
+            {
+              "OutputName": "ArchiveOutput",
+              "AudioDescriptionNames": ["audio_1"],
+              "VideoDescriptionName": "video_1",
+              "OutputSettings": {
+                "ArchiveOutputSettings": {
+                  "NameModifier": "_archive",
+                  "ContainerSettings": {
+                    "M2tsSettings": {
+                      "AudioBufferModel": "ATSC",
+                      "BufferModel": "MULTIPLEX",
+                      "RateMode": "CBR",
+                      "AudioFramesPerPes": 2,
+                      "PcrControl": "PCR_EVERY_PES_PACKET",
+                      "PmtPid": "480",
+                      "VideoPid": "481",
+                      "AudioPids": "482-489"
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "TimecodeConfig": {
+        "Source": "EMBEDDED"
+      }
+    }
+  }
